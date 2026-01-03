@@ -77,3 +77,13 @@ cards:
 - The integration auto-disarms after a successful start to avoid repeated runs.
 - If the cheapest hour falls outside the allowed window, the planned start will be `unknown` until a valid hour appears.
 - Update the ready substring or time window anytime via the integration options.
+
+## Release and versioning policy
+Follow these steps **for every code update** so HACS users receive consistent updates:
+
+1. Update `custom_components/dishwasher_scheduler/manifest.json` with the new semantic version (for release `v1.2.3`, set `"version": "1.2.3"`).
+2. Create a matching git tag (e.g., `v1.2.3`). HACS will detect the GitHub release tied to this tag and offer the update to users.
+3. Publish a GitHub Release from the tag. The release zip is what HACS downloads.
+4. (Optional) For development/testing without a release, installs from a branch such as `main` are possible, but regular users should rely on tagged releases for reproducible installs.
+
+This flow keeps the manifest version, git tag, and GitHub Release aligned, ensuring HACS shows accurate versions and update prompts.
