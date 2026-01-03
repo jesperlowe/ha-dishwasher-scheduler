@@ -8,9 +8,10 @@
           "cheapest_hour_entity": "Cheapest hour sensor (0–23 used for scheduling)",
           "status_entity": "Dishwasher status entity (state contains 'Ready' when done)",
           "start_button_entity": "Start button entity (button.* that starts your dishwasher)",
+          "planning_mode": "Planning mode (cheapest in next 24h or start now)",
           "ready_substring": "Ready substring (text in status that means the machine is done)",
-          "window_start": "Allowed window start hour (0–23, local time)",
-          "window_end": "Allowed window end hour (0–23, local time)"
+          "window_start": "Allowed window start hour (0–23, local time, 0=all day)",
+          "window_end": "Allowed window end hour (0–23, local time, 0=all day)"
         }
       }
     }
