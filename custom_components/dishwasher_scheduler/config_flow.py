@@ -8,14 +8,18 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_CHEAPEST_HOUR_ENTITY,
     CONF_READY_SUBSTRING,
+    CONF_PLANNING_MODE,
     CONF_START_BUTTON_ENTITY,
     CONF_STATUS_ENTITY,
     CONF_WINDOW_END,
     CONF_WINDOW_START,
+    DEFAULT_PLANNING_MODE,
     DEFAULT_READY_SUBSTRING,
     DEFAULT_WINDOW_END,
     DEFAULT_WINDOW_START,
     DOMAIN,
+    MODE_CHEAPEST_24H,
+    MODE_START_NOW,
 )
 
 DATA_SCHEMA = vol.Schema(
@@ -28,6 +32,17 @@ DATA_SCHEMA = vol.Schema(
         ),
         vol.Required(CONF_START_BUTTON_ENTITY): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="button")
+        ),
+        vol.Required(
+            CONF_PLANNING_MODE,
+            default=DEFAULT_PLANNING_MODE,
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    {"value": MODE_CHEAPEST_24H, "label": "Cheapest in next 24h"},
+                    {"value": MODE_START_NOW, "label": "Start now"},
+                ]
+            )
         ),
         vol.Optional(CONF_READY_SUBSTRING, default=DEFAULT_READY_SUBSTRING): str,
         vol.Optional(CONF_WINDOW_START, default=DEFAULT_WINDOW_START): vol.Coerce(int),
@@ -90,6 +105,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             self.entry.data.get(CONF_WINDOW_END, DEFAULT_WINDOW_END),
                         ),
                     ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_PLANNING_MODE,
+                        default=self.entry.options.get(
+                            CONF_PLANNING_MODE,
+                            self.entry.data.get(
+                                CONF_PLANNING_MODE, DEFAULT_PLANNING_MODE
+                            ),
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {
+                                    "value": MODE_CHEAPEST_24H,
+                                    "label": "Cheapest in next 24h",
+                                },
+                                {"value": MODE_START_NOW, "label": "Start now"},
+                            ]
+                        )
+                    ),
                 }
             )
             return self.async_show_form(step_id="init", data_schema=schema)

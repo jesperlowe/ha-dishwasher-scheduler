@@ -1,11 +1,12 @@
 # Dishwasher Scheduler (Home Assistant custom integration)
 
-A Home Assistant custom integration that arms, plans, and automatically starts your dishwasher on the cheapest electricity hour when the machine is ready.
+A Home Assistant custom integration that arms, plans, and automatically starts your dishwasher on the cheapest electricity hour when the machine is ready. You can also force a "start now" plan for immediate autostart.
 
 ## Features
 - Config flow: select the cheapest-hour sensor, dishwasher status entity, and start button entity.
 - "Armed" switch to indicate user intent before automatic starts are allowed.
-- Planned start sensor that calculates the next run based on the cheapest hour and allowed time window.
+- Planned start sensor that calculates the next run based on the cheapest hour and allowed time window (defaults to the full day).
+- Choose planning mode: start immediately or use the cheapest hour in the next 24 hours.
 - Last attempt/result sensors for debugging and visibility.
 - Minute-level checks to start your dishwasher by pressing the configured button entity once the window matches.
 
@@ -17,10 +18,11 @@ A Home Assistant custom integration that arms, plans, and automatically starts y
 
 ## Configuration
 During setup, you will be asked to provide:
-- **Cheapest hour entity**: numeric sensor (0–23) indicating the cheapest hour to run.
+- **Planning mode**: either start immediately or schedule the cheapest hour in the next 24 hours.
+- **Cheapest hour entity**: numeric sensor (0–23) indicating the cheapest hour to run (used when planning mode is "cheapest").
 - **Dishwasher status entity**: entity whose state contains `Ready` when the dishwasher can start.
 - **Start button entity**: `button.*` entity that triggers the dishwasher program.
-- Optional: ready substring (default `Ready`) and allowed time window (start/end hours).
+- Optional: ready substring (default `Ready`) and allowed time window (start/end hours, default is full day when both are `0`).
 
 After configuration the integration exposes:
 - `switch.dishwasher_scheduler_armed` – enable when you have loaded the dishwasher and allow auto-start.
@@ -75,7 +77,8 @@ cards:
 
 ## Notes
 - The integration auto-disarms after a successful start to avoid repeated runs.
-- If the cheapest hour falls outside the allowed window, the planned start will be `unknown` until a valid hour appears.
+- If the cheapest hour falls outside the allowed window (default is the full day), the planned start will be `unknown` until a valid hour appears.
+- Switch planning mode in the integration options: choose "start now" for immediate autostart or "cheapest" for price-optimized scheduling.
 - Update the ready substring or time window anytime via the integration options.
 
 ## Release and versioning policy

@@ -12,13 +12,17 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_CHEAPEST_HOUR_ENTITY,
     CONF_READY_SUBSTRING,
+    CONF_PLANNING_MODE,
     CONF_START_BUTTON_ENTITY,
     CONF_STATUS_ENTITY,
     CONF_WINDOW_END,
     CONF_WINDOW_START,
+    DEFAULT_PLANNING_MODE,
     DEFAULT_READY_SUBSTRING,
     DEFAULT_WINDOW_END,
     DEFAULT_WINDOW_START,
+    MODE_CHEAPEST_24H,
+    MODE_START_NOW,
 )
 
 CallbackType = Callable[[], None]
@@ -70,6 +74,10 @@ class DishwasherSchedulerCoordinator:
     @property
     def window_end(self) -> int:
         return int(self._opt(CONF_WINDOW_END, DEFAULT_WINDOW_END))
+
+    @property
+    def planning_mode(self) -> str:
+        return self._opt(CONF_PLANNING_MODE, DEFAULT_PLANNING_MODE)
 
     async def async_start(self) -> None:
         """Begin listening for ticks and compute initial plan."""
@@ -128,12 +136,21 @@ class DishwasherSchedulerCoordinator:
         return (hour >= start) or (hour < end)
 
     def _recompute_planned_start(self) -> None:
+        mode = self.planning_mode
+        now = dt_util.now()
+
+        if mode == MODE_START_NOW:
+            candidate = (now + timedelta(minutes=1)).replace(
+                second=0, microsecond=0
+            )
+            self.state.planned_start = candidate
+            return
+
         cheapest = self._get_cheapest_hour()
         if cheapest is None:
             self.state.planned_start = None
             return
 
-        now = dt_util.now()
         candidate = now.replace(minute=0, second=0, microsecond=0, hour=cheapest)
         if candidate <= now:
             candidate = candidate + timedelta(days=1)
