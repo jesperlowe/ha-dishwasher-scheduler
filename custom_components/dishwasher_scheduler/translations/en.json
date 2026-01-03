@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "Dishwasher Scheduler",
-        "description": "Schedule dishwasher start on the cheapest hour.",
+        "description": "Select the sensors and button used to plan and start your dishwasher automatically on the cheapest hour.",
         "data": {
-          "cheapest_hour_entity": "Cheapest hour entity (0-23)",
-          "status_entity": "Dishwasher status entity",
-          "start_button_entity": "Start button entity",
-          "ready_substring": "Substring that means Ready",
-          "window_start": "Allowed window start hour",
-          "window_end": "Allowed window end hour"
+          "cheapest_hour_entity": "Cheapest hour sensor (0–23 used for scheduling)",
+          "status_entity": "Dishwasher status entity (state contains 'Ready' when done)",
+          "start_button_entity": "Start button entity (button.* that starts your dishwasher)",
+          "ready_substring": "Ready substring (text in status that means the machine is done)",
+          "window_start": "Allowed window start hour (0–23, local time)",
+          "window_end": "Allowed window end hour (0–23, local time)"
         }
       }
     }
