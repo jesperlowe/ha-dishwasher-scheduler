@@ -45,6 +45,34 @@ cards:
     name: Seneste resultat
 ```
 
+## Lovelace overview card (all inputs and outputs)
+Use this card to see both the integration entities and the external inputs it relies on. Replace the example entities with your own cheapest-hour sensor, dishwasher status entity, and start button.
+
+```yaml
+type: vertical-stack
+cards:
+  - type: entities
+    title: Opvasker-planlægning
+    entities:
+      - entity: switch.dishwasher_scheduler_armed
+        name: Klar til autostart
+      - entity: sensor.dishwasher_scheduler_planned_start
+        name: Planlagt start
+      - entity: sensor.dishwasher_scheduler_last_attempt
+        name: Seneste forsøg
+      - entity: sensor.dishwasher_scheduler_last_result
+        name: Seneste resultat
+  - type: entities
+    title: Inputkilder
+    entities:
+      - entity: sensor.your_cheapest_hour
+        name: Billigste time (0-23)
+      - entity: sensor.dishwasher_status
+        name: Opvasker-status
+      - entity: button.dishwasher_start
+        name: Startknap
+```
+
 ## Notes
 - The integration auto-disarms after a successful start to avoid repeated runs.
 - If the cheapest hour falls outside the allowed window, the planned start will be `unknown` until a valid hour appears.

@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "Opvask Scheduler",
-        "description": "Planlæg opvasker-start på billigste time.",
+        "description": "Vælg de sensorer og knappen, der bruges til at planlægge og starte opvaskeren automatisk på den billigste time.",
         "data": {
-          "cheapest_hour_entity": "Billigste time entity (0-23)",
-          "status_entity": "Opvasker status entity",
-          "start_button_entity": "Start-knap entity",
-          "ready_substring": "Tekst der betyder Klar",
-          "window_start": "Tilladt start-time (klokkeslæt)",
-          "window_end": "Tilladt slut-time (klokkeslæt)"
+          "cheapest_hour_entity": "Sensor for billigste time (0-23 til planlægning)",
+          "status_entity": "Opvasker-status (tilstand indeholder 'Klar' når programmet er færdigt)",
+          "start_button_entity": "Start-knap entity (button.* der starter opvaskeren)",
+          "ready_substring": "Klar-tekst (det der i status betyder, at maskinen er færdig)",
+          "window_start": "Tilladt start-time (0-23, lokal tid)",
+          "window_end": "Tilladt slut-time (0-23, lokal tid)"
         }
       }
     }
