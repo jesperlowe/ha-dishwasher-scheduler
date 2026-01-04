@@ -1,1 +1,24 @@
-# Reserved for future services.
+log_message:
+  name: Log message
+  description: "Send a log message from Dishwasher Scheduler with a chosen severity."
+  fields:
+    message:
+      name: Message
+      description: "Text to add to the Dishwasher Scheduler log."
+      required: true
+      example: "Cycle scheduled"
+      selector:
+        text:
+    level:
+      name: Level
+      description: "Logging level to use (debug, info, warning, error, critical)."
+      required: false
+      example: info
+      selector:
+        select:
+          options:
+            - debug
+            - info
+            - warning
+            - error
+            - critical

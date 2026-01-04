@@ -7,7 +7,13 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, SENSOR_LAST_ATTEMPT, SENSOR_LAST_RESULT, SENSOR_PLANNED_START
+from .const import (
+    DOMAIN,
+    INTEGRATION_VERSION,
+    SENSOR_LAST_ATTEMPT,
+    SENSOR_LAST_RESULT,
+    SENSOR_PLANNED_START,
+)
 from .coordinator import DishwasherSchedulerCoordinator
 
 
@@ -47,6 +53,7 @@ class BaseDishwasherSensor(SensorEntity):
             name="Dishwasher Scheduler",
             manufacturer="Custom",
             model="Scheduler",
+            sw_version=INTEGRATION_VERSION,
         )
 
 
