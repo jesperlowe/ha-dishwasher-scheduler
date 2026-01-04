@@ -1,5 +1,5 @@
 DOMAIN = "dishwasher_scheduler"
-INTEGRATION_VERSION = "0.2.0"
+INTEGRATION_VERSION = "0.3.0"
 
 CONF_CHEAPEST_HOUR_ENTITY = "cheapest_hour_entity"
 CONF_STATUS_ENTITY = "status_entity"
@@ -8,6 +8,7 @@ CONF_READY_SUBSTRING = "ready_substring"
 CONF_WINDOW_START = "window_start"
 CONF_WINDOW_END = "window_end"
 CONF_PLANNING_MODE = "planning_mode"
+CONF_PROGRAM_SELECT_ENTITY = "program_select_entity"
 
 MODE_CHEAPEST_24H = "cheapest_24h"
 MODE_START_NOW = "start_now"
@@ -23,6 +24,7 @@ ATTR_LEVEL = "level"
 ATTR_MESSAGE = "message"
 
 SERVICE_LOG_MESSAGE = "log_message"
+SERVICE_SCHEDULE_FROM_PRICES = "schedule_from_prices"
 
 LOG_LEVELS = {
     "debug": "debug",

@@ -22,3 +22,41 @@ log_message:
             - warning
             - error
             - critical
+
+schedule_from_prices:
+  name: Find cheapest window and arm
+  description: |
+    Calculate the cheapest contiguous half-hour window from a price entity (e.g. Nordpool),
+    set the planned start, and optionally arm the scheduler.
+  fields:
+    price_entity:
+      name: Price entity
+      description: Sensor with raw_today/raw_tomorrow attributes containing price slots.
+      required: true
+      example: sensor.nordpool_kwh_dk2
+      selector:
+        entity:
+          domain: sensor
+    duration_half_hours:
+      name: Duration (half-hours)
+      description: Number of 30-minute blocks to reserve for the program.
+      required: false
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 20
+          mode: box
+    program_durations:
+      name: Program durations
+      description: Optional mapping of program name to half-hours (used with a configured program select entity).
+      required: false
+      selector:
+        object:
+    arm:
+      name: Arm scheduler
+      description: Arm the integration after scheduling so it starts automatically.
+      required: false
+      default: true
+      selector:
+        boolean:

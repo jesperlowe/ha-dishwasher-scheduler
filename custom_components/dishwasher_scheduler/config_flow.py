@@ -9,6 +9,7 @@ from .const import (
     CONF_CHEAPEST_HOUR_ENTITY,
     CONF_READY_SUBSTRING,
     CONF_PLANNING_MODE,
+    CONF_PROGRAM_SELECT_ENTITY,
     CONF_START_BUTTON_ENTITY,
     CONF_STATUS_ENTITY,
     CONF_WINDOW_END,
@@ -32,6 +33,9 @@ DATA_SCHEMA = vol.Schema(
         ),
         vol.Required(CONF_START_BUTTON_ENTITY): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="button")
+        ),
+        vol.Optional(CONF_PROGRAM_SELECT_ENTITY): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="select")
         ),
         vol.Required(
             CONF_PLANNING_MODE,
@@ -123,6 +127,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                                 {"value": MODE_START_NOW, "label": "Start now"},
                             ]
                         )
+                    ),
+                    vol.Optional(
+                        CONF_PROGRAM_SELECT_ENTITY,
+                        default=self.entry.options.get(
+                            CONF_PROGRAM_SELECT_ENTITY,
+                            self.entry.data.get(CONF_PROGRAM_SELECT_ENTITY),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="select")
                     ),
                 }
             )
