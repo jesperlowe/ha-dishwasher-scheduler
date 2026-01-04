@@ -14,6 +14,7 @@ from .const import (
     LOG_LEVELS,
     PLATFORMS,
     SERVICE_LOG_MESSAGE,
+    SERVICE_SCHEDULE_FROM_PRICES,
 )
 from .coordinator import DishwasherSchedulerCoordinator
 
@@ -42,6 +43,41 @@ async def _async_register_services(hass: HomeAssistant) -> None:
             {
                 vol.Required(ATTR_MESSAGE): str,
                 vol.Optional(ATTR_LEVEL, default="info"): vol.In(LOG_LEVELS),
+            }
+        ),
+    )
+
+    async def _handle_schedule_service(call: ServiceCall) -> None:
+        if not hass.data.get(DOMAIN):
+            _LOGGER.warning("No Dishwasher Scheduler entries available for scheduling")
+            return
+
+        coordinator: DishwasherSchedulerCoordinator = hass.data[DOMAIN][
+            next(iter(hass.data[DOMAIN]))
+        ]
+
+        price_entity = call.data["price_entity"]
+        duration_half_hours = call.data.get("duration_half_hours", 2)
+        program_durations = call.data.get("program_durations")
+        arm = call.data.get("arm", True)
+
+        await coordinator.async_schedule_from_prices(
+            price_entity,
+            duration_half_hours,
+            program_durations,
+            arm,
+        )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SCHEDULE_FROM_PRICES,
+        _handle_schedule_service,
+        schema=vol.Schema(
+            {
+                vol.Required("price_entity"): str,
+                vol.Optional("duration_half_hours", default=2): vol.Coerce(int),
+                vol.Optional("program_durations"): {str: vol.Coerce(int)},
+                vol.Optional("arm", default=True): bool,
             }
         ),
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable, Optional
+from typing import Callable, Mapping, Optional
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -14,6 +14,7 @@ from .const import (
     CONF_CHEAPEST_HOUR_ENTITY,
     CONF_READY_SUBSTRING,
     CONF_PLANNING_MODE,
+    CONF_PROGRAM_SELECT_ENTITY,
     CONF_START_BUTTON_ENTITY,
     CONF_STATUS_ENTITY,
     CONF_WINDOW_END,
@@ -25,6 +26,7 @@ from .const import (
     INTEGRATION_VERSION,
     MODE_CHEAPEST_24H,
     MODE_START_NOW,
+    SERVICE_SCHEDULE_FROM_PRICES,
 )
 
 CallbackType = Callable[[], None]
@@ -64,6 +66,10 @@ class DishwasherSchedulerCoordinator:
     @property
     def start_button_entity(self) -> str:
         return self.entry.data[CONF_START_BUTTON_ENTITY]
+
+    @property
+    def program_select_entity(self) -> Optional[str]:
+        return self.entry.data.get(CONF_PROGRAM_SELECT_ENTITY)
 
     def _opt(self, key: str, default):
         return self.entry.options.get(key, self.entry.data.get(key, default))
@@ -110,6 +116,11 @@ class DishwasherSchedulerCoordinator:
         _LOGGER.info("Scheduler %s set to armed=%s", self.entry.entry_id, value)
         if value:
             self._recompute_planned_start()
+        self._notify_listeners()
+
+    def set_planned_start(self, planned: Optional[datetime]) -> None:
+        """Set a planned start time and notify listeners."""
+        self.state.planned_start = planned
         self._notify_listeners()
 
     def async_add_listener(self, listener: CallbackType) -> CallbackType:
@@ -233,3 +244,131 @@ class DishwasherSchedulerCoordinator:
             _LOGGER.exception("Failed to start dishwasher")
         finally:
             self._notify_listeners()
+
+    def _get_program_half_hours(
+        self,
+        default_half_hours: int,
+        program_durations: Optional[Mapping[str, int]] = None,
+    ) -> int:
+        """Return duration in half hours based on the current program selection."""
+
+        if not program_durations or not self.program_select_entity:
+            return default_half_hours
+
+        state = self.hass.states.get(self.program_select_entity)
+        if state is None:
+            _LOGGER.warning(
+                "Program select entity %s not found", self.program_select_entity
+            )
+            return default_half_hours
+
+        program = state.state
+        if program in program_durations and program_durations[program] > 0:
+            return int(program_durations[program])
+
+        _LOGGER.info(
+            "No program duration mapping found for %s; using default %s half-hours",
+            program,
+            default_half_hours,
+        )
+        return default_half_hours
+
+    def _get_price_slots(self, price_entity: str):
+        st = self.hass.states.get(price_entity)
+        if st is None:
+            _LOGGER.warning("Price entity %s not found", price_entity)
+            return []
+
+        slots = []
+        for key in ("raw_today", "raw_tomorrow"):
+            raw = st.attributes.get(key)
+            if not isinstance(raw, list):
+                continue
+
+            for item in raw:
+                start_str = item.get("start")
+                value = item.get("value")
+                if start_str is None or value is None:
+                    continue
+
+                start = dt_util.parse_datetime(start_str)
+                if start is None:
+                    continue
+
+                try:
+                    price_value = float(value)
+                except (TypeError, ValueError):
+                    continue
+
+                slots.append((dt_util.as_utc(start), price_value))
+
+        slots.sort(key=lambda slot: slot[0])
+        now = dt_util.utcnow()
+        return [slot for slot in slots if slot[0] >= now]
+
+    def _find_cheapest_window(
+        self, price_entity: str, duration_half_hours: int
+    ) -> Optional[datetime]:
+        slots = self._get_price_slots(price_entity)
+        if not slots:
+            _LOGGER.warning("No price slots available from %s", price_entity)
+            return None
+
+        needed_slots = duration_half_hours * 2
+        if len(slots) < needed_slots:
+            _LOGGER.warning(
+                "Not enough price slots (%s available) for %s half-hours",
+                len(slots),
+                duration_half_hours,
+            )
+            return None
+
+        best_total = None
+        best_start = None
+
+        for idx in range(len(slots) - needed_slots + 1):
+            window = slots[idx : idx + needed_slots]
+            start_dt = window[0][0]
+            if not self._within_window(start_dt.hour):
+                continue
+
+            total_price = sum(value for _, value in window)
+            if best_total is None or total_price < best_total:
+                best_total = total_price
+                best_start = start_dt
+
+        if best_start:
+            _LOGGER.info(
+                "Cheapest %s half-hour window starts at %s with total %.3f",
+                duration_half_hours,
+                best_start,
+                best_total,
+            )
+        else:
+            _LOGGER.info(
+                "No valid window found inside the allowed hours (%s-%s)",
+                self.window_start,
+                self.window_end,
+            )
+        return best_start
+
+    async def async_schedule_from_prices(
+        self,
+        price_entity: str,
+        duration_half_hours: int,
+        program_durations: Optional[Mapping[str, int]] = None,
+        arm: bool = True,
+    ) -> None:
+        duration = max(1, duration_half_hours)
+        resolved_duration = self._get_program_half_hours(duration, program_durations)
+        best_start = self._find_cheapest_window(price_entity, resolved_duration)
+
+        if best_start is None:
+            self.state.planned_start = None
+            self._notify_listeners()
+            return
+
+        self.state.planned_start = best_start
+        if arm:
+            self.state.armed = True
+        self._notify_listeners()
