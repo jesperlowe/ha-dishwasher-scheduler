@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Callable, Mapping, Optional
 
 from homeassistant.config_entries import ConfigEntry
@@ -74,17 +74,38 @@ class DishwasherSchedulerCoordinator:
     def _opt(self, key: str, default):
         return self.entry.options.get(key, self.entry.data.get(key, default))
 
+    def _parse_time(self, key: str, default_value: str) -> time:
+        raw_value = self._opt(key, default_value)
+
+        if isinstance(raw_value, time):
+            return raw_value
+
+        if isinstance(raw_value, str):
+            parsed = dt_util.parse_time(raw_value)
+            if parsed:
+                return parsed
+
+        try:
+            hour = int(float(raw_value))
+            return time(hour % 24, 0)
+        except (TypeError, ValueError):
+            return dt_util.parse_time(default_value) or time(0, 0)
+
+    def _window_minutes(self, key: str, default_value: str) -> int:
+        parsed_time = self._parse_time(key, default_value)
+        return parsed_time.hour * 60 + parsed_time.minute
+
     @property
     def ready_substring(self) -> str:
         return self._opt(CONF_READY_SUBSTRING, DEFAULT_READY_SUBSTRING)
 
     @property
-    def window_start(self) -> int:
-        return int(self._opt(CONF_WINDOW_START, DEFAULT_WINDOW_START))
+    def window_start(self) -> time:
+        return self._parse_time(CONF_WINDOW_START, DEFAULT_WINDOW_START)
 
     @property
-    def window_end(self) -> int:
-        return int(self._opt(CONF_WINDOW_END, DEFAULT_WINDOW_END))
+    def window_end(self) -> time:
+        return self._parse_time(CONF_WINDOW_END, DEFAULT_WINDOW_END)
 
     @property
     def planning_mode(self) -> str:
@@ -152,14 +173,26 @@ class DishwasherSchedulerCoordinator:
         _LOGGER.error("Cheapest hour out of range: %s", st.state)
         return None
 
-    def _within_window(self, hour: int) -> bool:
-        start = self.window_start
-        end = self.window_end
+    def _within_window(self, target) -> bool:
+        start = self._window_minutes(CONF_WINDOW_START, DEFAULT_WINDOW_START)
+        end = self._window_minutes(CONF_WINDOW_END, DEFAULT_WINDOW_END)
+
+        if isinstance(target, datetime):
+            local_dt = dt_util.as_local(target)
+            target_minutes = local_dt.hour * 60 + local_dt.minute
+        elif isinstance(target, time):
+            target_minutes = target.hour * 60 + target.minute
+        else:
+            try:
+                target_minutes = int(float(target)) * 60
+            except (TypeError, ValueError):
+                return False
+
         if start == end:
             return True
         if start < end:
-            return start <= hour < end
-        return (hour >= start) or (hour < end)
+            return start <= target_minutes < end
+        return (target_minutes >= start) or (target_minutes < end)
 
     def _recompute_planned_start(self) -> None:
         mode = self.planning_mode

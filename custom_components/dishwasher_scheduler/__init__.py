@@ -3,8 +3,11 @@ from __future__ import annotations
 import logging
 
 import voluptuous as vol
+from datetime import time
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+import homeassistant.helpers.config_validation as cv
 
 from .const import (
     ATTR_LEVEL,
@@ -13,6 +16,7 @@ from .const import (
     INTEGRATION_VERSION,
     LOG_LEVELS,
     PLATFORMS,
+    SERVICE_SET_WINDOW,
     SERVICE_LOG_MESSAGE,
     SERVICE_SCHEDULE_FROM_PRICES,
 )
@@ -82,6 +86,46 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         ),
     )
 
+    async def _handle_window_service(call: ServiceCall) -> None:
+        if not hass.data.get(DOMAIN):
+            _LOGGER.warning("No Dishwasher Scheduler entries available for window update")
+            return
+
+        coordinator: DishwasherSchedulerCoordinator = hass.data[DOMAIN][
+            next(iter(hass.data[DOMAIN]))
+        ]
+
+        start_time: time = call.data["window_start"]
+        end_time: time = call.data["window_end"]
+
+        options = {**coordinator.entry.options}
+        options["window_start"] = start_time.strftime("%H:%M")
+        options["window_end"] = end_time.strftime("%H:%M")
+
+        await hass.config_entries.async_update_entry(
+            coordinator.entry, options=options
+        )
+
+        coordinator._recompute_planned_start()
+        coordinator._notify_listeners()
+        _LOGGER.info(
+            "Updated Dishwasher Scheduler window to %s-%s via service",
+            options["window_start"],
+            options["window_end"],
+        )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_WINDOW,
+        _handle_window_service,
+        schema=vol.Schema(
+            {
+                vol.Required("window_start"): cv.time,
+                vol.Required("window_end"): cv.time,
+            }
+        ),
+    )
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Dishwasher Scheduler from a config entry."""
@@ -109,6 +153,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if not hass.data[DOMAIN]:
         hass.services.async_remove(DOMAIN, SERVICE_LOG_MESSAGE)
+        hass.services.async_remove(DOMAIN, SERVICE_SCHEDULE_FROM_PRICES)
+        hass.services.async_remove(DOMAIN, SERVICE_SET_WINDOW)
         _LOGGER.info("Removed Dishwasher Scheduler services (no entries left)")
 
     return unloaded
