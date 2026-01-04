@@ -60,3 +60,22 @@ schedule_from_prices:
       default: true
       selector:
         boolean:
+
+set_window:
+  name: Update allowed window
+  description: Set the allowed start/end times directly from a dashboard or automation.
+  fields:
+    window_start:
+      name: Window start
+      description: When the daily window opens.
+      required: true
+      example: "20:00:00"
+      selector:
+        time:
+    window_end:
+      name: Window end
+      description: When the daily window closes.
+      required: true
+      example: "05:00:00"
+      selector:
+        time:

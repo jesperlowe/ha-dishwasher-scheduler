@@ -1,5 +1,5 @@
 DOMAIN = "dishwasher_scheduler"
-INTEGRATION_VERSION = "0.3.0"
+INTEGRATION_VERSION = "0.4.0"
 
 CONF_CHEAPEST_HOUR_ENTITY = "cheapest_hour_entity"
 CONF_STATUS_ENTITY = "status_entity"
@@ -14,8 +14,8 @@ MODE_CHEAPEST_24H = "cheapest_24h"
 MODE_START_NOW = "start_now"
 
 DEFAULT_READY_SUBSTRING = "Ready"
-DEFAULT_WINDOW_START = 0
-DEFAULT_WINDOW_END = 0
+DEFAULT_WINDOW_START = "00:00"
+DEFAULT_WINDOW_END = "00:00"
 DEFAULT_PLANNING_MODE = MODE_CHEAPEST_24H
 
 PLATFORMS: list[str] = ["sensor", "switch"]
@@ -25,6 +25,7 @@ ATTR_MESSAGE = "message"
 
 SERVICE_LOG_MESSAGE = "log_message"
 SERVICE_SCHEDULE_FROM_PRICES = "schedule_from_prices"
+SERVICE_SET_WINDOW = "set_window"
 
 LOG_LEVELS = {
     "debug": "debug",
