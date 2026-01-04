@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, SWITCH_ARMED
+from .const import DOMAIN, INTEGRATION_VERSION, SWITCH_ARMED
 from .coordinator import DishwasherSchedulerCoordinator
 
 
@@ -39,6 +39,7 @@ class DishwasherArmedSwitch(SwitchEntity):
             name="Dishwasher Scheduler",
             manufacturer="Custom",
             model="Scheduler",
+            sw_version=INTEGRATION_VERSION,
         )
 
     @property

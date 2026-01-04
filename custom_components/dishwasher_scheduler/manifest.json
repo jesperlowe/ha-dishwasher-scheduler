@@ -1,7 +1,7 @@
 {
   "domain": "dishwasher_scheduler",
   "name": "Dishwasher Scheduler",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "documentation": "https://github.com/YOUR_GITHUB/ha-dishwasher-scheduler",
   "issue_tracker": "https://github.com/YOUR_GITHUB/ha-dishwasher-scheduler/issues",
   "requirements": [],
