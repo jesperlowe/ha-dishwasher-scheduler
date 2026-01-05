@@ -8,6 +8,7 @@ from datetime import time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_LEVEL,
@@ -95,8 +96,22 @@ async def _async_register_services(hass: HomeAssistant) -> None:
             next(iter(hass.data[DOMAIN]))
         ]
 
-        start_time: time = call.data["window_start"]
-        end_time: time = call.data["window_end"]
+        def _coerce_time(value: time | str, label: str) -> time:
+            if isinstance(value, time):
+                return value
+
+            parsed = dt_util.parse_time(str(value))
+            if parsed:
+                return parsed
+
+            raise vol.Invalid(f"Invalid time specified for {label}: {value!r}")
+
+        try:
+            start_time: time = _coerce_time(call.data["window_start"], "window_start")
+            end_time: time = _coerce_time(call.data["window_end"], "window_end")
+        except vol.Invalid as err:
+            _LOGGER.error("Window update failed: %s", err)
+            return
 
         options = {**coordinator.entry.options}
         options["window_start"] = start_time.strftime("%H:%M")
@@ -120,8 +135,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         _handle_window_service,
         schema=vol.Schema(
             {
-                vol.Required("window_start"): cv.time,
-                vol.Required("window_end"): cv.time,
+                vol.Required("window_start"): vol.Any(cv.time, cv.string),
+                vol.Required("window_end"): vol.Any(cv.time, cv.string),
             }
         ),
     )

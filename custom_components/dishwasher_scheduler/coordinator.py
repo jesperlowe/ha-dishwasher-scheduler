@@ -163,11 +163,24 @@ class DishwasherSchedulerCoordinator:
         if st is None:
             _LOGGER.warning("Cheapest hour entity %s not found", self.cheapest_hour_entity)
             return None
+
+        state_value = st.state
+        if isinstance(state_value, str):
+            state_value = state_value.strip()
+
         try:
-            hour = int(float(st.state))
+            hour = int(float(state_value))
         except (ValueError, TypeError):
-            _LOGGER.error("Invalid cheapest hour state: %s", st.state)
-            return None
+            parsed_time = dt_util.parse_time(state_value)
+            if parsed_time:
+                hour = parsed_time.hour
+            else:
+                parsed_datetime = dt_util.parse_datetime(state_value)
+                if parsed_datetime:
+                    hour = dt_util.as_local(parsed_datetime).hour
+                else:
+                    _LOGGER.error("Invalid cheapest hour state: %s", st.state)
+                    return None
         if 0 <= hour <= 23:
             return hour
         _LOGGER.error("Cheapest hour out of range: %s", st.state)
