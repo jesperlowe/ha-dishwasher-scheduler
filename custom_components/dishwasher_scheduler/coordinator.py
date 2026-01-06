@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
-from typing import Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -120,6 +120,24 @@ class DishwasherSchedulerCoordinator:
     def _window_minutes(self, key: str, default_value: str) -> int:
         parsed_time = self._parse_time(key, default_value)
         return parsed_time.hour * 60 + parsed_time.minute
+
+    async def async_update_option(self, key: str, value: Any) -> None:
+        """Persist an option update and refresh planning."""
+
+        options = {**self.entry.options, key: value}
+        await self.hass.config_entries.async_update_entry(
+            self.entry, options=options
+        )
+
+        if key in {
+            CONF_WINDOW_START,
+            CONF_WINDOW_END,
+            CONF_PLANNING_MODE,
+            CONF_DEFAULT_DURATION_MINUTES,
+        }:
+            self._recompute_planned_start()
+
+        self._notify_listeners()
 
     @property
     def ready_substring(self) -> str:
