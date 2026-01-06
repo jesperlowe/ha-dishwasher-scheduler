@@ -19,7 +19,7 @@ DEFAULT_WINDOW_END = "00:00"
 DEFAULT_PLANNING_MODE = MODE_CHEAPEST_24H
 DEFAULT_DURATION_MINUTES = 120
 
-PLATFORMS: list[str] = ["sensor", "switch"]
+PLATFORMS: list[str] = ["sensor", "switch", "time", "select", "number"]
 
 ATTR_LEVEL = "level"
 ATTR_MESSAGE = "message"

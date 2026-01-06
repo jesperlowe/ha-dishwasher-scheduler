@@ -12,6 +12,8 @@ A Home Assistant custom integration that arms, plans, and automatically starts y
 - Minute-level checks to start your dishwasher by pressing the configured button entity once the window matches.
 - Service to pick the cheapest window directly from price data (Nordpool-style `raw_today/raw_tomorrow` arrays) using a 30-minute resolution and optional program-specific runtimes.
 - Service to set the allowed time window (`dishwasher_scheduler.set_window`) directly from Lovelace or automations.
+- Helper entities created automatically during installation so you can adjust the window, planning mode, and default runtime without
+  building input helpers yourself.
 
 ## Installation (HACS custom repository)
 1. In HACS, open **Integrations → ⋮ → Custom repositories**.
@@ -33,6 +35,9 @@ After configuration the integration exposes:
 - `sensor.dishwasher_scheduler_planned_start` – next planned start (local time).
 - `sensor.dishwasher_scheduler_last_attempt` – last time a start was attempted.
 - `sensor.dishwasher_scheduler_last_result` – result of the last attempt (`never`, `not_ready`, `started`, `start_failed`).
+- `time.dishwasher_scheduler_window_start` / `time.dishwasher_scheduler_window_end` – allowed start/end time window for runs.
+- `select.dishwasher_scheduler_planning_mode` – toggle between cheapest-hour planning and immediate start.
+- `number.dishwasher_scheduler_default_runtime` – default runtime (minutes) used when scheduling in the window.
 - Service `dishwasher_scheduler.schedule_from_prices` – calculate the cheapest start based on `raw_today/raw_tomorrow` prices and a runtime in half-hour blocks, optionally based on the current program selection; sets the planned start and can automatically arm the scheduler.
 - Service `dishwasher_scheduler.set_window` – update the allowed start/end times (HH:MM) without opening the integration options.
 
@@ -80,7 +85,7 @@ cards:
 
 ### Full setup with inputs and controls
 This card exposes every dependency the integration relies on (cheapest-hour sensor, dishwasher status, program selector, start
-button) plus the new window time pickers and planning mode selector so you can change everything directly from Lovelace.
+button) plus the built-in helpers so you can change everything directly from Lovelace.
 
 ```yaml
 type: vertical-stack
@@ -96,10 +101,8 @@ cards:
         name: Seneste forsøg
       - entity: sensor.dishwasher_scheduler_last_result
         name: Seneste resultat
-      - entity: input_select.dishwasher_planning_mode
+      - entity: select.dishwasher_scheduler_planning_mode
         name: Planlægningstilstand
-      - entity: input_boolean.dishwasher_arm_now
-        name: Arm ved planlægning
   - type: entities
     title: Inputkilder
     entities:
@@ -114,10 +117,12 @@ cards:
   - type: entities
     title: Tidsvindue og handlinger
     entities:
-      - entity: input_datetime.dishwasher_window_start
+      - entity: time.dishwasher_scheduler_window_start
         name: Vindue start
-      - entity: input_datetime.dishwasher_window_end
+      - entity: time.dishwasher_scheduler_window_end
         name: Vindue slut
+      - entity: number.dishwasher_scheduler_default_runtime
+        name: Standard køretid (minutter)
       - type: button
         name: Gem vindue
         icon: mdi:clock-outline
@@ -125,8 +130,8 @@ cards:
           action: call-service
           service: dishwasher_scheduler.set_window
           data:
-            window_start: "{{ states('input_datetime.dishwasher_window_start') }}"
-            window_end: "{{ states('input_datetime.dishwasher_window_end') }}"
+            window_start: "{{ states('time.dishwasher_scheduler_window_start')[0:5] }}"
+            window_end: "{{ states('time.dishwasher_scheduler_window_end')[0:5] }}"
       - type: button
         name: Planlæg billigste vindue
         icon: mdi:cash-clock
