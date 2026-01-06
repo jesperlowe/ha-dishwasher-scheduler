@@ -7,13 +7,19 @@ from typing import Callable, Mapping, Optional
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_change,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_CHEAPEST_HOUR_ENTITY,
     CONF_READY_SUBSTRING,
     CONF_PLANNING_MODE,
+    CONF_DOOR_SENSOR,
+    CONF_POWER_SWITCH,
+    CONF_DEFAULT_DURATION_MINUTES,
     CONF_PROGRAM_SELECT_ENTITY,
     CONF_START_BUTTON_ENTITY,
     CONF_STATUS_ENTITY,
@@ -21,6 +27,7 @@ from .const import (
     CONF_WINDOW_START,
     DEFAULT_PLANNING_MODE,
     DEFAULT_READY_SUBSTRING,
+    DEFAULT_DURATION_MINUTES,
     DEFAULT_WINDOW_END,
     DEFAULT_WINDOW_START,
     INTEGRATION_VERSION,
@@ -40,8 +47,11 @@ class RuntimeState:
 
     armed: bool = False
     planned_start: Optional[datetime] = None
+    planned_end: Optional[datetime] = None
+    planned_duration_minutes: int = DEFAULT_DURATION_MINUTES
     last_attempt: Optional[datetime] = None
     last_result: str = "never"
+    started_at: Optional[datetime] = None
 
 
 class DishwasherSchedulerCoordinator:
@@ -51,6 +61,7 @@ class DishwasherSchedulerCoordinator:
         self.hass = hass
         self.entry = entry
         self.unsub_timer: Optional[Callable[[], None]] = None
+        self.unsub_door: Optional[Callable[[], None]] = None
         self.state = RuntimeState()
         self._listeners: list[CallbackType] = []
         _LOGGER.debug("Coordinator created for entry %s", entry.entry_id)
@@ -70,6 +81,21 @@ class DishwasherSchedulerCoordinator:
     @property
     def program_select_entity(self) -> Optional[str]:
         return self.entry.data.get(CONF_PROGRAM_SELECT_ENTITY)
+
+    @property
+    def door_sensor(self) -> Optional[str]:
+        return self._opt(CONF_DOOR_SENSOR, None)
+
+    @property
+    def power_switch(self) -> Optional[str]:
+        return self._opt(CONF_POWER_SWITCH, None)
+
+    @property
+    def default_duration_minutes(self) -> int:
+        try:
+            return int(self._opt(CONF_DEFAULT_DURATION_MINUTES, DEFAULT_DURATION_MINUTES))
+        except (TypeError, ValueError):
+            return DEFAULT_DURATION_MINUTES
 
     def _opt(self, key: str, default):
         return self.entry.options.get(key, self.entry.data.get(key, default))
@@ -117,6 +143,10 @@ class DishwasherSchedulerCoordinator:
         self.unsub_timer = async_track_time_change(
             self.hass, self._handle_minute_tick, second=0
         )
+        if self.door_sensor:
+            self.unsub_door = async_track_state_change_event(
+                self.hass, [self.door_sensor], self._handle_door_event
+            )
         _LOGGER.info(
             "Dishwasher Scheduler %s started for entry %s",
             INTEGRATION_VERSION,
@@ -130,6 +160,10 @@ class DishwasherSchedulerCoordinator:
             self.unsub_timer()
             self.unsub_timer = None
             _LOGGER.debug("Stopped scheduler timer for %s", self.entry.entry_id)
+        if self.unsub_door:
+            self.unsub_door()
+            self.unsub_door = None
+            _LOGGER.debug("Stopped door listener for %s", self.entry.entry_id)
 
     def set_armed(self, value: bool) -> None:
         """Arm or disarm the scheduler."""
@@ -207,6 +241,43 @@ class DishwasherSchedulerCoordinator:
             return start <= target_minutes < end
         return (target_minutes >= start) or (target_minutes < end)
 
+    def _within_window_span(self, start_dt: datetime, duration_minutes: int) -> bool:
+        """Check whether a start/end span fits within the configured window."""
+
+        if duration_minutes <= 0:
+            return False
+
+        start_minutes = self._window_minutes(CONF_WINDOW_START, DEFAULT_WINDOW_START)
+        end_minutes = self._window_minutes(CONF_WINDOW_END, DEFAULT_WINDOW_END)
+
+        local_start = dt_util.as_local(start_dt)
+        local_end = local_start + timedelta(minutes=duration_minutes)
+
+        start_minute_of_day = local_start.hour * 60 + local_start.minute
+        end_minute_of_day = local_end.hour * 60 + local_end.minute
+
+        if start_minutes == end_minutes:
+            return True
+
+        if start_minutes < end_minutes:
+            if local_end.date() != local_start.date():
+                return False
+            return (
+                start_minute_of_day >= start_minutes
+                and end_minute_of_day <= end_minutes
+            )
+
+        # Window wraps over midnight
+        if start_minute_of_day >= start_minutes:
+            # Starting late evening; must finish before window end next day
+            return (
+                local_end.date() > local_start.date()
+                and end_minute_of_day <= end_minutes
+            )
+
+        # Starting after midnight; ensure finish before end_minutes same day
+        return end_minute_of_day <= end_minutes
+
     def _recompute_planned_start(self) -> None:
         mode = self.planning_mode
         now = dt_util.now()
@@ -216,6 +287,10 @@ class DishwasherSchedulerCoordinator:
                 second=0, microsecond=0
             )
             self.state.planned_start = candidate
+            self.state.planned_duration_minutes = self.default_duration_minutes
+            self.state.planned_end = candidate + timedelta(
+                minutes=self.state.planned_duration_minutes
+            )
             _LOGGER.info("Planning mode is start now; planned start %s", candidate)
             return
 
@@ -229,8 +304,9 @@ class DishwasherSchedulerCoordinator:
         if candidate <= now:
             candidate = candidate + timedelta(days=1)
 
-        if not self._within_window(cheapest):
+        if not self._within_window_span(candidate, self.default_duration_minutes):
             self.state.planned_start = None
+            self.state.planned_end = None
             _LOGGER.info(
                 "Cheapest hour %s outside allowed window %s-%s",
                 cheapest,
@@ -240,7 +316,15 @@ class DishwasherSchedulerCoordinator:
             return
 
         self.state.planned_start = candidate
-        _LOGGER.info("Planned start recalculated: %s", candidate)
+        self.state.planned_duration_minutes = self.default_duration_minutes
+        self.state.planned_end = candidate + timedelta(
+            minutes=self.state.planned_duration_minutes
+        )
+        _LOGGER.info(
+            "Planned start recalculated: %s (duration %s minutes)",
+            candidate,
+            self.state.planned_duration_minutes,
+        )
 
     def _status_is_ready(self) -> bool:
         st = self.hass.states.get(self.status_entity)
@@ -256,6 +340,17 @@ class DishwasherSchedulerCoordinator:
     async def _press_start_button(self) -> None:
         await self.hass.services.async_call(
             "button", "press", {"entity_id": self.start_button_entity}, blocking=True
+        )
+
+    async def _ensure_power_on(self) -> None:
+        if not self.power_switch:
+            return
+        state = self.hass.states.get(self.power_switch)
+        if state and state.state.lower() == "on":
+            return
+
+        await self.hass.services.async_call(
+            "switch", "turn_on", {"entity_id": self.power_switch}, blocking=True
         )
 
     async def _handle_minute_tick(self, now: datetime) -> None:
@@ -274,6 +369,15 @@ class DishwasherSchedulerCoordinator:
         self.state.last_attempt = now
         _LOGGER.debug("Attempting to start dishwasher at %s", now)
 
+        if self.state.planned_end and not self._within_window_span(
+            planned, self.state.planned_duration_minutes
+        ):
+            self.state.last_result = "outside_window"
+            self.state.armed = False
+            _LOGGER.warning("Planned start no longer within allowed window; cancelling")
+            self._notify_listeners()
+            return
+
         if not self._status_is_ready():
             self.state.last_result = "not_ready"
             _LOGGER.warning("Dishwasher not ready at planned start time")
@@ -281,9 +385,11 @@ class DishwasherSchedulerCoordinator:
             return
 
         try:
+            await self._ensure_power_on()
             await self._press_start_button()
             self.state.last_result = "started"
             self.state.armed = False
+            self.state.started_at = now
             _LOGGER.info("Dishwasher start command sent successfully")
         except Exception:  # noqa: BLE001
             self.state.last_result = "start_failed"
@@ -332,8 +438,10 @@ class DishwasherSchedulerCoordinator:
                 continue
 
             for item in raw:
-                start_str = item.get("start")
+                start_str = item.get("start") or item.get("hour")
                 value = item.get("value")
+                if value is None:
+                    value = item.get("price")
                 if start_str is None or value is None:
                     continue
 
@@ -371,11 +479,12 @@ class DishwasherSchedulerCoordinator:
 
         best_total = None
         best_start = None
+        duration_minutes = duration_half_hours * 30
 
         for idx in range(len(slots) - needed_slots + 1):
             window = slots[idx : idx + needed_slots]
             start_dt = window[0][0]
-            if not self._within_window(start_dt.hour):
+            if not self._within_window_span(start_dt, duration_minutes):
                 continue
 
             total_price = sum(value for _, value in window)
@@ -411,10 +520,34 @@ class DishwasherSchedulerCoordinator:
 
         if best_start is None:
             self.state.planned_start = None
+            self.state.planned_end = None
             self._notify_listeners()
             return
 
         self.state.planned_start = best_start
+        self.state.planned_duration_minutes = resolved_duration * 30
+        self.state.planned_end = best_start + timedelta(
+            minutes=self.state.planned_duration_minutes
+        )
         if arm:
             self.state.armed = True
+        self._notify_listeners()
+
+    async def _handle_door_event(self, event) -> None:
+        if not self.state.started_at:
+            return
+
+        new_state = event.data.get("new_state")
+        if new_state is None:
+            return
+
+        if new_state.state.lower() != "on":
+            return
+
+        self.state.armed = False
+        self.state.planned_start = None
+        self.state.planned_end = None
+        self.state.started_at = None
+        self.state.last_result = "reset_on_door_open"
+        _LOGGER.info("Dishwasher cycle complete; schedule reset after door opened")
         self._notify_listeners()
