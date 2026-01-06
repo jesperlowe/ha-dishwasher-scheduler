@@ -12,6 +12,7 @@ from .const import (
     INTEGRATION_VERSION,
     SENSOR_LAST_ATTEMPT,
     SENSOR_LAST_RESULT,
+    SENSOR_PLANNED_END,
     SENSOR_PLANNED_START,
 )
 from .coordinator import DishwasherSchedulerCoordinator
@@ -25,6 +26,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             PlannedStartSensor(coordinator),
+            PlannedEndSensor(coordinator),
             LastAttemptSensor(coordinator),
             LastResultSensor(coordinator),
         ],
@@ -68,6 +70,22 @@ class PlannedStartSensor(BaseDishwasherSensor):
     @property
     def native_value(self):
         dt_value = self.coordinator.state.planned_start
+        if dt_value is None:
+            return None
+        return dt_util.as_local(dt_value).isoformat(timespec="minutes")
+
+
+class PlannedEndSensor(BaseDishwasherSensor):
+    def __init__(self, coordinator: DishwasherSchedulerCoordinator) -> None:
+        super().__init__(
+            coordinator,
+            "Planned end",
+            SENSOR_PLANNED_END,
+        )
+
+    @property
+    def native_value(self):
+        dt_value = self.coordinator.state.planned_end
         if dt_value is None:
             return None
         return dt_util.as_local(dt_value).isoformat(timespec="minutes")

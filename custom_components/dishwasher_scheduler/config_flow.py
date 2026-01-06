@@ -15,10 +15,14 @@ from .const import (
     CONF_PROGRAM_SELECT_ENTITY,
     CONF_START_BUTTON_ENTITY,
     CONF_STATUS_ENTITY,
+    CONF_DOOR_SENSOR,
+    CONF_POWER_SWITCH,
+    CONF_DEFAULT_DURATION_MINUTES,
     CONF_WINDOW_END,
     CONF_WINDOW_START,
     DEFAULT_PLANNING_MODE,
     DEFAULT_READY_SUBSTRING,
+    DEFAULT_DURATION_MINUTES,
     DEFAULT_WINDOW_END,
     DEFAULT_WINDOW_START,
     DOMAIN,
@@ -73,6 +77,12 @@ DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_PROGRAM_SELECT_ENTITY): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="select")
         ),
+        vol.Optional(CONF_DOOR_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="binary_sensor")
+        ),
+        vol.Optional(CONF_POWER_SWITCH): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="switch")
+        ),
         vol.Required(
             CONF_PLANNING_MODE,
             default=DEFAULT_PLANNING_MODE,
@@ -91,6 +101,9 @@ DATA_SCHEMA = vol.Schema(
         vol.Optional(
             CONF_WINDOW_END, default=_ensure_time(DEFAULT_WINDOW_END)
         ): selector.TimeSelector(),
+        vol.Optional(
+            CONF_DEFAULT_DURATION_MINUTES, default=DEFAULT_DURATION_MINUTES
+        ): vol.Coerce(int),
     }
 )
 
@@ -192,6 +205,34 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain="select")
                     ),
+                    vol.Optional(
+                        CONF_DOOR_SENSOR,
+                        default=self.entry.options.get(
+                            CONF_DOOR_SENSOR,
+                            self.entry.data.get(CONF_DOOR_SENSOR),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="binary_sensor")
+                    ),
+                    vol.Optional(
+                        CONF_POWER_SWITCH,
+                        default=self.entry.options.get(
+                            CONF_POWER_SWITCH,
+                            self.entry.data.get(CONF_POWER_SWITCH),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="switch")
+                    ),
+                    vol.Optional(
+                        CONF_DEFAULT_DURATION_MINUTES,
+                        default=self.entry.options.get(
+                            CONF_DEFAULT_DURATION_MINUTES,
+                            self.entry.data.get(
+                                CONF_DEFAULT_DURATION_MINUTES,
+                                DEFAULT_DURATION_MINUTES,
+                            ),
+                        ),
+                    ): vol.Coerce(int),
                 }
             )
             return self.async_show_form(step_id="init", data_schema=schema)

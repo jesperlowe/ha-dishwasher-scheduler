@@ -17,6 +17,7 @@ DEFAULT_READY_SUBSTRING = "Ready"
 DEFAULT_WINDOW_START = "00:00"
 DEFAULT_WINDOW_END = "00:00"
 DEFAULT_PLANNING_MODE = MODE_CHEAPEST_24H
+DEFAULT_DURATION_MINUTES = 120
 
 PLATFORMS: list[str] = ["sensor", "switch"]
 
@@ -36,7 +37,12 @@ LOG_LEVELS = {
 }
 
 SENSOR_PLANNED_START = "planned_start"
+SENSOR_PLANNED_END = "planned_end"
 SENSOR_LAST_ATTEMPT = "last_attempt"
 SENSOR_LAST_RESULT = "last_result"
 
 SWITCH_ARMED = "armed"
+
+CONF_DOOR_SENSOR = "door_sensor_entity"
+CONF_POWER_SWITCH = "power_switch_entity"
+CONF_DEFAULT_DURATION_MINUTES = "default_duration_minutes"
